@@ -6,8 +6,7 @@ electric machinery makers and suppliers of Apple’s iphone parts. Sterling fell
 sessions of losses took it to the lowest since Nov.1 as there were still considerable unresolved issues with the
 European Union over Brexit, British Prime Minister Theresa May said on Monday.'''
 
-import spacy
-
+import en_core_web_sm
 
 # map the position of the token to the index of the start character of the token in the document(text)
 # @param doc the document
@@ -45,7 +44,7 @@ def entities(doc):
 
 
 def main():
-    nlp = spacy.load('en')
+    nlp = en_core_web_sm.load()
     doc = nlp(article)
     print('hi')
     entities(doc)
