@@ -1,9 +1,9 @@
 import spacy
-from flask import Flask,jsonify,request
-
+from spacy import displacy
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
-
+returning = ""
 
 # map the position of the token to the index of the start character of the token in the document(text)
 # @param doc the document
@@ -30,10 +30,13 @@ def findPosition(startIndex, mapping):
     return position
 
 
+def get_lable(ent):
+    return ent.lable_
+
+
 # print the entities an its position in the document
 # @param the document
 def entities(doc):
-
     mapping = map_position_start(doc)
     dic = []
 
@@ -41,27 +44,46 @@ def entities(doc):
         ent_dic = {}
         startIndex = ent.start_char
         position = findPosition(startIndex, mapping)
+        lable = ent.label_
+
         ent_dic["entity"] = ent.text
         ent_dic["position"] = position
-        dic.append(ent_dic)
+        ent_dic["label"] = lable
 
+        dic.append(ent_dic)
 
     return dic
 
 
-#def main(article):
- #   nlp = spacy.load('en')
-  #  doc = nlp(article)
-   # returning = entities(doc)
-    #return returning
+# def main(article):
+#   nlp = spacy.load('en')
+#  doc = nlp(article)
+# returning = entities(doc)
+# return returning
 
-@app.route('/test', methods = ['POST'])
+@app.route('/list', methods=['POST'])
 def test():
     nlp = spacy.load('en')
-    article = request.data.decode()  #return a string
+    article = request.data.decode()  # return a string
     doc = nlp(article)
     entities_dic = entities(doc)
     return jsonify(entities_dic)
+
+
+@app.route('/test', methods = ['POST','GET'])
+def visualization():
+    global returning
+    if request.method == 'POST':
+        nlp = spacy.load('en')
+        article = request.data.decode()
+        doc = nlp(article)
+        returning =  displacy.render(doc, style="ent")
+        return ""
+    else:
+        if returning =="":
+            return "Please POST your text."
+        else:
+            return returning
 
 
 
