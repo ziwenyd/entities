@@ -10,7 +10,6 @@ reference = 0
 references = {}
 
 
-
 # map the position of the token to the index of the start character of the token in the document(text)
 # @param doc the document
 # @return a dictionary mapping the position of the token in the document to the index of the start char of this token in the document
@@ -61,15 +60,9 @@ def entities(doc):
     return dic
 
 
-# def main(article):
-#   nlp = spacy.load('en')
-#  doc = nlp(article)
-# returning = entities(doc)
-# return returning
-
 @app.route('/list', methods=['POST'])
 def test():
-    nlp = spacy.load('en')
+    nlp = en_core_web_sm.load()
     article = request.data.decode()  # return a string
     doc = nlp(article)
     entities_dic = entities(doc)
@@ -77,23 +70,25 @@ def test():
     return jsonify(entities_dic)
 
 
-@app.route('/post', methods = ['POST'])
+@app.route('/post', methods=['POST'])
 def visualization():
 
     global reference
     global references
 
-    reference = uuid.uuid4()
-    nlp = spacy.load('en')
+    reference = str(uuid.uuid4())
+    nlp = en_core_web_sm.load()
     article = request.data.decode()
     doc = nlp(article)
-    html =  displacy.render(doc, style="ent")
+    html = displacy.render(doc, style="ent")
     references[reference] = html
-    returning =
-    return jsonify({'your reference' : reference})
+    return jsonify({
+        'your reference':
+        "http://{}/get?reference={}".format(request.host, reference)
+    })
 
 
-@app.route('/get', methods = ['GET'])
+@app.route('/get', methods=['GET'])
 def get():
     global references
     if 'reference' in request.args:
