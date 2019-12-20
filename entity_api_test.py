@@ -1,4 +1,5 @@
-import spacy
+
+import en_core_web_sm
 from spacy import displacy
 from flask import Flask, jsonify, request
 import uuid
