@@ -1,9 +1,15 @@
 import spacy
 from spacy import displacy
 from flask import Flask, jsonify, request
+from IPython.core.display import display, HTML
+
 
 app = Flask(__name__)
-returning = ""
+reference = 0
+
+references = {}
+
+print(references)
 
 # map the position of the token to the index of the start character of the token in the document(text)
 # @param doc the document
@@ -70,21 +76,38 @@ def test():
     return jsonify(entities_dic)
 
 
-@app.route('/test', methods = ['POST','GET'])
+@app.route('/post', methods = ['POST'])
 def visualization():
-    global returning
-    if request.method == 'POST':
-        nlp = spacy.load('en')
-        article = request.data.decode()
-        doc = nlp(article)
-        returning =  displacy.render(doc, style="ent")
-        return ""
-    else:
-        if returning =="":
-            return "Please POST your text."
-        else:
-            return returning
 
+    global reference
+    global references
+
+    reference += 1
+    nlp = spacy.load('en')
+    article = request.data.decode()
+    doc = nlp(article)
+    html =  displacy.render(doc, style="ent")
+    return html
+
+    #references[reference] = html
+   # return jsonify({'your reference' : reference})
+   # return jsonify(references)
+
+
+@app.route('/get', methods = ['GET'])
+def get():
+    global references
+    if 'reference' in request.args:
+        reference = int(request.args('reference'))
+        html = references[reference]
+        return html
+    else:
+        return "Please enter your reference number"
+
+@app.route('/test', methods = ['GET'])
+def testing():
+    global references
+    return "hello again"
 
 
 
