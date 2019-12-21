@@ -1,94 +1,107 @@
-
 import en_core_web_sm
 from spacy import displacy
 from flask import Flask, jsonify, request
 import uuid
 
-
 app = Flask(__name__)
-reference = 0
+reference = 0  # 2 different variables with similar name
 
 references = {}
 
 
-# map the position of the token to the index of the start character of the token in the document(text)
-# @param doc the document
-# @return a dictionary mapping the position of the token in the document to the index of the start char of this token in the document
-def map_position_start(doc):
-    mapping = {}
-    i = 1  # the first element's position is 1 when we print it out
-    for token in doc:
+class Find_entity(object):
+    def __init__(self, article):
+        self.nlp = en_core_web_sm.load()
+        self.doc = self.nlp(article)
 
-        if token.is_punct or token.is_space:
-            i = i  # doing nothing here
-        else:
-            startIndex = token.idx
-            mapping[startIndex] = i
-            i += 1
-    return mapping
+    # @return a document
+    def get_doc(self):
+        return self.doc
+
+    # map the position of the token to the index of the start character of the token in the document(text)
+    # @param doc the document
+    # @return a dictionary mapping the position of the token in the document to the index of the start char of this token in the document
+    def map_position_startIndex(self):
+        mapping = {}
+        i = 1  # the first element's position is 1 when we print it out
+        for token in self.doc:
+
+            if token.is_punct or token.is_space:
+                i = i  # doing nothing here
+            else:
+                startIndex = token.idx
+                mapping[startIndex] = i
+                i += 1
+        return mapping
+
+    # find the position of the token in the original document using the startIndex of this token
+    # @param startIndex of the token in the document
+    # @return the position of this token in the document
+    def get_position(self, startIndex, mapping):
+        position = mapping[startIndex]
+        return position
+
+    # @return the lable of the entity
+    # @param the entity to get lable
+    def get_label(self, ent):
+        return ent.label_
+
+    # @param the entity to get text
+    # @return the text of the entity
+    def get_text(self, ent):
+        return ent.text
 
 
-# find the position of the token in the original document using the startIndex of this token
-# @param startIndex of the token in the document
-# @return the position of this token in the document
-def findPosition(startIndex, mapping):
-    position = mapping[startIndex]
-    return position
 
-
-def get_lable(ent):
-    return ent.lable_
-
-
-# print the entities an its position in the document
-# @param the document
-def entities(doc):
-    mapping = map_position_start(doc)
+# generate a response to the /list POST request
+# the user should post an article (raw text format) to this api
+# response: list the details of the entites in the article, in the json format
+@app.route('/list', methods=['POST'])
+def test():
+    article = request.data.decode()
+    my_doc = Find_entity(article)
     dic = []
+    mapping = my_doc.map_position_startIndex()
 
-    for ent in doc.ents:  # type of ent is span, extract entities from this document
+    for ent in my_doc.get_doc().ents:
         ent_dic = {}
         startIndex = ent.start_char
-        position = findPosition(startIndex, mapping)
-        lable = ent.label_
+        position = my_doc.get_position(startIndex, mapping)
+        label = my_doc.get_label(ent)
 
         ent_dic["entity"] = ent.text
         ent_dic["position"] = position
-        ent_dic["label"] = lable
+        ent_dic["label"] = label
 
         dic.append(ent_dic)
-
-    return dic
-
-
-@app.route('/list', methods=['POST'])
-def test():
-    nlp = en_core_web_sm.load()
-    article = request.data.decode()  # return a string
-    doc = nlp(article)
-    entities_dic = entities(doc)
-
-    return jsonify(entities_dic)
+    return jsonify(dic)
 
 
+# Post request
+# response: return a URL containing the reference number of this POST
+# user can use the URL in the browser to see the visualized entity extract result
 @app.route('/post', methods=['POST'])
 def visualization():
-
     global reference
     global references
 
-    reference = str(uuid.uuid4())
-    nlp = en_core_web_sm.load()
     article = request.data.decode()
-    doc = nlp(article)
-    html = displacy.render(doc, style="ent")
+    my_doc = Find_entity(article)
+
+    reference = str(uuid.uuid4())
+
+    html = displacy.render(my_doc.get_doc(), style="ent")
     references[reference] = html
+
     return jsonify({
         'your reference':
-        "http://{}/get?reference={}".format(request.host, reference)
+            "http://{}/get?reference={}".format(request.host, reference)
     })
 
 
+# GET request
+# before using this, the user must have used a POST request
+# the user using the reference he got from the POST reqeust response to get the GET response
 @app.route('/get', methods=['GET'])
 def get():
     global references
