@@ -24,7 +24,7 @@ class References(object):
         return self.references[key]
 
 
-class EntityFiner(object):
+class EntityFinder(object):
     """Extract entities from a given text(via argument). Useful
     information of the entities can be get via functions.
 
@@ -122,7 +122,7 @@ def list_all_entities():
     """
 
     article = request.data.decode()
-    my_doc = EntityFiner(article)
+    my_doc = EntityFinder(article)
     dic = []
     mapping = my_doc.map_position_start_index()
 
@@ -152,7 +152,7 @@ def visualization():
     """
     article = request.data.decode()  # String
 
-    my_doc = EntityFiner(article)
+    my_doc = EntityFinder(article)
     reference_number = str(uuid.uuid4())
 
     html = displacy.render(my_doc.get_doc(), style="ent")
