@@ -1,72 +1,135 @@
+from typing import Dict
+
 import en_core_web_sm
 from spacy import displacy
+from spacy.lang.en import English
+from spacy.tokens.doc import Doc
 from flask import Flask, jsonify, request
 import uuid
 
+from spacy.tokens.span import Span
+from spacy.tokens.token import Token
+
 app = Flask(__name__)
-reference = 0  # 2 different variables with similar name
-
-references = {}
 
 
-class Find_entity(object):
-    def __init__(self, article):
-        self.nlp = en_core_web_sm.load()
-        self.doc = self.nlp(article)
+class References(object):
+    def __init__(self):
+        self.references = {}
 
-    # @return a document
-    def get_doc(self):
+    def add_reference(self, key, value):
+        self.references[key] = value
+
+    def get_value(self, key):
+        return self.references[key]
+
+
+class EntityFiner(object):
+    """Extract entities from a given text(via argument). Useful
+    information of the entities can be get via functions.
+
+    Arg:
+        article(String): the text sent from the POST request
+
+    Attribute:
+        nlp(:obj:'nlp'): using the English model from spacy library.
+        doc(:obh:'DOC'): construct the DOC object via the nlp object
+    """
+
+    def __init__(self, article: str):
+        self.nlp: English = en_core_web_sm.load()
+        self.doc: Doc = self.nlp(article)
+
+    def get_doc(self) -> Doc:
+        """
+        Returns:
+            obj:'DOC' : a DOC object of the article
+        """
         return self.doc
 
-    # map the position of the token to the index of the start character of the token in the document(text)
-    # @param doc the document
-    # @return a dictionary mapping the position of the token in the document to the index of the start char of this token in the document
-    def map_position_startIndex(self):
-        mapping = {}
-        i = 1  # the first element's position is 1 when we print it out
-        for token in self.doc:
+    def map_position_start_index(self) -> Dict[int, int]:
+        """ Generate a Dictionary to hold the references of the position of the token,
+        and the index of the start character of the token in the text.
 
-            if token.is_punct or token.is_space:
-                i = i  # doing nothing here
-            else:
-                startIndex = token.idx
-                mapping[startIndex] = i
+          Note:
+              The position of the token in the text only counts the word, ignore
+              punctuation and white spaces.
+              The position starts from 1.
+
+          Returns:
+              Dictionary: a dictionary mapping the position of the token in the
+              document, to the index of the start char of this token in the document.
+          """
+        mapping = {}
+        i = 1
+        for token in self.doc:
+            if not (token.is_punct or token.is_space):
+                start_index = token.idx
+                mapping[start_index] = i
                 i += 1
         return mapping
 
-    # find the position of the token in the original document using the startIndex of this token
-    # @param startIndex of the token in the document
-    # @return the position of this token in the document
-    def get_position(self, startIndex, mapping):
-        position = mapping[startIndex]
-        return position
+    @staticmethod
+    def get_position(start_index: int, mapping: Dict[int, int]):
+        """ Find the position of the token in the original document using the
+        startIndex of this token.
 
-    # @return the lable of the entity
-    # @param the entity to get lable
-    def get_label(self, ent):
+        Args:
+            start_index(int): the index of the start character of the token in the text.
+
+        Returns:
+            Int: the position of this token in the text.
+        """
+        return mapping[start_index]
+
+    @staticmethod
+    def get_label(ent: Token):
+        """Classify the entity passed by argument.
+
+        Args:
+            ent (Token):the entity to get its label
+
+        Returns:
+            ent.label_ (String)
+        """
         return ent.label_
 
-    # @param the entity to get text
-    # @return the text of the entity
-    def get_text(self, ent):
+    @staticmethod
+    def get_text(ent: Token):
+        """
+        Args:
+            ent (Token): the entity to get its text(content).
+        Returns:
+            ent.text (String): the content of this entity.
+
+        """
+        print(type(ent.text))
         return ent.text
 
 
+references = References()
 
-# generate a response to the /list POST request
-# the user should post an article (raw text format) to this api
-# response: list the details of the entites in the article, in the json format
+
 @app.route('/list', methods=['POST'])
-def test():
+def list_all_entities():
+    """POST request, generate a response listing the details of all the entities.
+
+    Args:
+        raw text: the user should post an article (raw text format) to this api.
+
+    Returns:
+        json: list the details of the entities in the article, in the json format
+    """
+
     article = request.data.decode()
-    my_doc = Find_entity(article)
+    my_doc = EntityFiner(article)
     dic = []
-    mapping = my_doc.map_position_startIndex()
+    mapping = my_doc.map_position_start_index()
 
     for ent in my_doc.get_doc().ents:
         ent_dic = {}
-        startIndex = ent.start_char
-        position = my_doc.get_position(startIndex, mapping)
+        start_index = ent.start_char
+        position = my_doc.get_position(start_index, mapping)
         label = my_doc.get_label(ent)
 
         ent_dic["entity"] = ent.text
@@ -77,43 +140,50 @@ def test():
     return jsonify(dic)
 
 
-# Post request
-# response: return a URL containing the reference number of this POST
-# user can use the URL in the browser to see the visualized entity extract result
 @app.route('/post', methods=['POST'])
 def visualization():
-    global reference
-    global references
+    """ Post request.
 
-    article = request.data.decode()
-    my_doc = Find_entity(article)
+    Args:
+        raw text: the body of the POST request should be raw text.
+    Returns:
+        String: Return a URL containing the reference number of this POST, the user
+        can use the URL in the browser to see the visualized entity extract result
+    """
+    article = request.data.decode()  # String
 
-    reference = str(uuid.uuid4())
+    my_doc = EntityFiner(article)
+    reference_number = str(uuid.uuid4())
 
     html = displacy.render(my_doc.get_doc(), style="ent")
-    references[reference] = html
+    references.add_reference(reference_number, html)
 
     return jsonify({
         'your reference':
-            "http://{}/get?reference={}".format(request.host, reference)
+            f"http://{request.host}/get?reference={reference_number}"
     })
 
 
-# GET request
-# before using this, the user must have used a POST request
-# the user using the reference he got from the POST reqeust response to get the GET response
 @app.route('/get', methods=['GET'])
 def get():
-    global references
+    """ GET request, before using this, the user must have used a POST request to
+    get the URL in order to create a valid GET request.
+
+    Args:
+        String: the special ID created by the corresponding POST request.
+
+    Returns:
+        "Please enter valid reference."(String): if the reference number does not exist.
+        "Please enter your reference."(String): if the user didn't pass a reference number.
+        html(HTML): if the user passes a valid reference number.
+    """
     if 'reference' in request.args:
-        reference = request.args['reference']
-        if reference in references:
-            html = references[reference]
+        reference_number = request.args['reference']
+        if reference_number in references.references:
+            html = references.get_value(reference_number)
             return html
-        else:
-            return "Please enter valid reference."
-    else:
-        return "Please enter your reference."
+        return "Please enter valid reference."
+    return "Please enter your reference."
 
 
 if __name__ == '__main__':
