@@ -4,118 +4,18 @@ the text they want to be processed in the 'raw text' format, then
 the user is allowed to get the entities information of the text via
 different GET requests .
 """
-# imports for the IDE.
-from typing import Dict
-from spacy.lang.en import English
-from spacy.tokens.span import Span
-from spacy.tokens.token import Token
-from spacy.tokens.doc import Doc
 
-# necessary imports.
-import en_core_web_sm
 from spacy import displacy
 from flask import Flask, jsonify, request
 import uuid
+from Doc import Doc
+from Catch import Catch
+
 
 app = Flask(__name__)
 
 
-class References(object):
-    def __init__(self):
-        self.references = {}
-
-    def add_reference(self, key, value):
-        self.references[key] = value
-
-    def get_value(self, key):
-        return self.references[key]
-
-
-class EntityFinder(object):
-    """Extract entities from a given text(via argument). Useful
-    information of the entities can be get via functions.
-
-    Arg:
-        article(String): the text sent from the POST request
-
-    Attribute:
-        nlp(:obj:'nlp'): using the English model from spacy library.
-        doc(:obh:'DOC'): construct the DOC object via the nlp object
-    """
-
-    def __init__(self, article: str):
-        self.nlp: English = en_core_web_sm.load()
-        self.doc: Doc = self.nlp(article)
-
-    def get_doc(self) -> Doc:
-        """
-        Returns:
-            obj:'DOC' : a DOC object of the article
-        """
-        return self.doc
-
-    def map_position_start_index(self) -> Dict[int, int]:
-        """ Generate a Dictionary to hold the references of the position of the token,
-        and the index of the start character of the token in the text.
-
-          Note:
-              The position of the token in the text only counts the word, ignore
-              punctuation and white spaces.
-              The position starts from 1.
-
-          Returns:
-              Dictionary: a dictionary mapping the position of the token in the
-              document, to the index of the start char of this token in the document.
-        """
-        mapping = {}
-        i = 1
-        for token in self.doc:
-            if not (token.is_punct or token.is_space):
-                start_index = token.idx
-                mapping[start_index] = i
-                i += 1
-        return mapping
-
-    @staticmethod
-    def get_position(start_index: int, mapping: Dict[int, int]):
-        """ Find the position of the token in the original document using the
-        startIndex of this token.
-
-        Args:
-            start_index(int): the index of the start character of the token in the text.
-
-        Returns:
-            Int: the position of this token in the text.
-        """
-        return mapping[start_index]
-
-    @staticmethod
-    def get_label(ent: Token):
-        """Classify the entity passed by argument.
-
-        Args:
-            ent (Token):the entity to get its label
-
-        Returns:
-            ent.label_ (String)
-        """
-        return ent.label_
-
-    @staticmethod
-    def get_text(ent: Token):
-        """
-        Args:
-            ent (Token): the entity to get its text(content).
-        Returns:
-            ent.text (String): the content of this entity.
-
-        """
-        print(type(ent.text))
-        return ent.text
-
-
-references = References()
-
+catch = Catch()
 
 @app.route('/list', methods=['POST'])
 def list_all_entities():
@@ -129,7 +29,7 @@ def list_all_entities():
     """
 
     article = request.data.decode()
-    my_doc = EntityFinder(article)
+    my_doc = Doc(article)
     dic = []
     mapping = my_doc.map_position_start_index()
 
@@ -149,7 +49,10 @@ def list_all_entities():
 
 @app.route('/post', methods=['POST'])
 def visualization():
-    """ Post request.
+    """ POST request, can be made via Postman.
+
+    Notes:
+        the format of the body of the POST request must be 'raw text'.
 
     Args:
         raw text: the body of the POST request should be raw text.
@@ -159,11 +62,11 @@ def visualization():
     """
     article = request.data.decode()  # String
 
-    my_doc = EntityFinder(article)
+    my_doc = Doc(article)
     reference_number = str(uuid.uuid4())
 
     html = displacy.render(my_doc.get_doc(), style="ent")
-    references.add_reference(reference_number, html)
+    catch.add_reference(reference_number, html)
 
     return jsonify({
         'your reference':
@@ -173,7 +76,10 @@ def visualization():
 
 @app.route('/get', methods=['GET'])
 def get():
-    """ GET request, before using this, the user must have used a POST request to
+    """ Display the original text with labeled entities highlighted.
+
+    Notes:
+        Before using this GET request, the user must have used a POST request to
     get the URL in order to create a valid GET request.
 
     Args:
@@ -185,9 +91,10 @@ def get():
         html(HTML): if the user passes a valid reference number.
     """
     if 'reference' in request.args:
+        #reference_number is the UUID generated by every different POST.
         reference_number = request.args['reference']
-        if reference_number in references.references:
-            html = references.get_value(reference_number)
+        if reference_number in catch.references:
+            html = catch.get_value(reference_number)
             return html
         return "Please enter valid reference."
     return "Please enter your reference."
