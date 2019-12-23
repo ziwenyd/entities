@@ -1,14 +1,21 @@
+"""
+This program allows the users to make a POST request first to pass
+the text they want to be processed in the 'raw text' format, then
+the user is allowed to get the entities information of the text via
+different GET requests .
+"""
+# imports for the IDE.
 from typing import Dict
-
-import en_core_web_sm
-from spacy import displacy
 from spacy.lang.en import English
-from spacy.tokens.doc import Doc
-from flask import Flask, jsonify, request
-import uuid
-
 from spacy.tokens.span import Span
 from spacy.tokens.token import Token
+from spacy.tokens.doc import Doc
+
+# necessary imports.
+import en_core_web_sm
+from spacy import displacy
+from flask import Flask, jsonify, request
+import uuid
 
 app = Flask(__name__)
 
@@ -59,7 +66,7 @@ class EntityFinder(object):
           Returns:
               Dictionary: a dictionary mapping the position of the token in the
               document, to the index of the start char of this token in the document.
-          """
+        """
         mapping = {}
         i = 1
         for token in self.doc:
