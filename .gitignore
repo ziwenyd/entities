@@ -3,6 +3,5 @@ Pipfile.orig
 __pycache__/
 hello.py
 hi.py
-test.py
-test_entities.py
-entity_api.py
+
+
